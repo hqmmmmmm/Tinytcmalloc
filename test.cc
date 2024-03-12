@@ -1,6 +1,9 @@
 #include "ObjectPool.h"
 #include <iostream>
 #include <vector>
+#include "ConcurrentAlloc.h"
+#include <thread>
+#include <mutex>
 
 using namespace std;
 
@@ -75,11 +78,43 @@ void TestObjectPool() // malloc和当前定长内存池性能对比
 	cout << "object pool cost time:" << end2 - begin2 << endl;
 }
 
+std::mutex mtx;
+
+void Alloc1()
+{
+	for(int i = 0; i < 5; ++i)
+	{
+		mtx.lock();
+		ConcurrentAlloc(6);
+		mtx.unlock();
+	}
+		
+}
+
+void Alloc2()
+{
+	for(int i = 0; i < 5; ++i)
+	{
+		mtx.lock();
+		ConcurrentAlloc(7);
+		mtx.unlock();
+	}
+}
+
+void TestThreadCache()  // 用来测试thread_loacl变量是否正常
+{
+	std::thread t1(Alloc1);
+	std::thread t2(Alloc2);
+
+	t1.join();
+	t2.join();
+}
 
 
 int main()
 {
-    TestObjectPool();
+    //TestObjectPool();
+	TestThreadCache();
 
     return 0;
 }

@@ -3,6 +3,10 @@
 #include <cstdio>
 
 
+// 对齐规则具体看博客
+static const size_t FREE_LIST_NUM = 208;     // 哈希表中自由链表个数
+static const size_t MAX_BYTES = 256 * 1024;  // ThreadCache单次申请的最大字节数
+
 static void *&ObjNext(void *obj)
 {
     return *(void **)obj;
@@ -26,6 +30,11 @@ public:
         void *obj = freelist_;
         freelist_ = ObjNext(obj);
         return obj;
+    }
+
+    bool Empty()
+    {
+        return freelist_ == nullptr;
     }
 
 private:
@@ -78,11 +87,49 @@ public:
             return -1;
         }
     }
+
+
+    static inline size_t Index_(size_t size, size_t align_shift)
+    {
+        return ((size + (1 << align_shift) - 1) >> align_shift) - 1;
+    }
+
+    static inline size_t Index(size_t size)
+    {
+        assert(size < MAX_BYTES);
+
+        static int group_array[4] = {16, 56, 56, 56};
+        if(size <= 128)
+        {
+            return Index_(size, 3);
+        }
+        else if(size <= 1024)
+        {
+            return Index_(size - 128, 4) + group_array[0];
+        }
+        else if(size <= 8 * 1024)
+        {
+            return Index_(size - 1024, 7) + group_array[0] + group_array[1];
+        }
+        else if(size <= 64 * 1024)
+        {
+            return Index_(size, 10) + group_array[0] + group_array[1]
+                + group_array[2];
+        }
+        else if(size <= 256 * 1024)
+        {
+            return Index_(size, 16) + + group_array[0] + group_array[1]
+                + group_array[2] + group_array[3];
+        }
+        else
+        {
+            assert(false);
+            return -1;
+        }
+    }
 };
 
-// 对齐规则具体看博客
-static const size_t FREE_LIST_NUM = 208;     // 哈希表中自由链表个数
-static const size_t MAX_BYTES = 256 * 1024;  // ThreadCache单次申请的最大字节数
+
 
 class ThreadCache
 {
@@ -91,10 +138,14 @@ public:
 
     void Deallocate(void *obj, size_t size);
 
+    void *FetchFromCentralCache(size_t index, size_t alignSize);
+
 private:
     FreeList freelists_[FREE_LIST_NUM];
 };
 
+
+static thread_local ThreadCache *pTLSThreadCache = nullptr;
 
 
 
