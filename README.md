@@ -8,6 +8,13 @@
 
 3.12   实现ThreadCache，不过还有需要完善的地方
 
+3.13   初步实现CentralCache
+            Span实现 ok
+            SpanList实现
+            实现单例CentralCache  ok
+            实现FetchFromCentralCache  
+            实现FetchRangeObj    从CentralCache的span中获取空间
+
 
 
 
